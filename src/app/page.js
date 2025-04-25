@@ -47,8 +47,9 @@ export default function Home() {
     // 使用图片加载和调整大小
     const reader = new FileReader();
     reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
+      // 使用 window.Image 而不是 Image，避免与 Next.js 的 Image 组件冲突
+      const imgElement = new window.Image();
+      imgElement.onload = () => {
         // 创建 canvas 调整图片大小
         const canvas = document.createElement('canvas');
         canvas.width = 512;
@@ -56,7 +57,7 @@ export default function Home() {
         const ctx = canvas.getContext('2d');
         
         // 计算缩放和裁剪参数以保持宽高比
-        const imgRatio = img.width / img.height;
+        const imgRatio = imgElement.width / imgElement.height;
         const targetRatio = 512 / 768;
         
         let drawWidth, drawHeight, startX = 0, startY = 0;
@@ -64,19 +65,19 @@ export default function Home() {
         if (imgRatio > targetRatio) {
           // 图片较宽，以高度为基准进行缩放
           drawHeight = 768;
-          drawWidth = img.width * (768 / img.height);
+          drawWidth = imgElement.width * (768 / imgElement.height);
           startX = (drawWidth - 512) / 2; // 居中裁剪
         } else {
           // 图片较高，以宽度为基准进行缩放
           drawWidth = 512;
-          drawHeight = img.height * (512 / img.width);
+          drawHeight = imgElement.height * (512 / imgElement.width);
           startY = (drawHeight - 768) / 2; // 居中裁剪
         }
         
         // 清空画布并绘制调整大小和裁剪后的图片
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, 512, 768);
-        ctx.drawImage(img, -startX, -startY, drawWidth, drawHeight);
+        ctx.drawImage(imgElement, -startX, -startY, drawWidth, drawHeight);
         
         // 转换为 blob
         canvas.toBlob((blob) => {
@@ -95,7 +96,7 @@ export default function Home() {
         }, file.type);
       };
       
-      img.src = event.target.result;
+      imgElement.src = event.target.result;
     };
     reader.readAsDataURL(file);
   };
@@ -190,7 +191,7 @@ return (
         type="submit"
         disabled={isLoading}
       >
-        {isLoading ? '处理中...' : '生成'}
+        {isLoading ? 'Wait...' : 'Go'}
       </button>
     </div>
     
@@ -247,7 +248,7 @@ return (
       <div className="image-wrapper mt-5 flex justify-center">             
         <div className="max-w-2xl">
           <Image               
-            src={imageUrl}               
+            src={imageUrl}
             alt="Generated image"               
             className="max-w-full h-auto rounded-lg mx-auto"
             width={512}
