@@ -26,29 +26,18 @@ export default function Home() {
     }
     setPrediction(prediction);
 
-    while(
-      prediction.status !== "succeeded" &&
-      prediction.status !== "failed"
-    ){
-      await sleep(1000);
-      const response = await fetch(`/api/predictions/${prediction.id}`);
-      prediction = await response.json();
-      if(response.status !== 200){
-        setError(prediction.error);
-        return;
-      }
-      console.log({prediction:prediction});
-      setPrediction(prediction);
-    }
+    console.log(prediction);
+
+    
   };
 return (   
 <div className="container max-w-2xl mx-auto p-5">     
-  <h1 className="py-6 text-center font-bold text-2xl">       
-    Dream something with{" "}       
+  {/* <h1 className="py-6 text-center font-bold text-2xl">       
+    Dream something with{" "}
     <a href="https://replicate.com/black-forest-labs/flux-schnell?utm_source=project&utm_project=getting-started">         
     Flux Schnell       
     </a>     
-  </h1>
+  </h1> */}
 
   <form className="w-full flex" onSubmit={handleSubmit}>       
     <input 
@@ -63,8 +52,13 @@ return (
   </form>
     {error && <div>{error}</div>}     
     {prediction && (       
-      <>         
-        {prediction.output && (           
+      <>
+        <div className="mt-4 p-4 bg-gray-100 rounded">
+          {prediction.choices && prediction.choices[0] && prediction.choices[0].message && (
+            <p>{prediction.choices[0].message.content}</p>
+          )}
+        </div>
+        {/* {prediction.output && (
           <div className="image-wrapper mt-5">             
             <Image               
               src={prediction.output[prediction.output.length - 1]}               
@@ -74,8 +68,7 @@ return (
               width={768}             
             />  
           </div>         
-        )}         
-        <p className="py-3 text-sm opacity-50">status: {prediction.status}</p>       
+        )} */}
       </>     
       )}   
 </div>                
