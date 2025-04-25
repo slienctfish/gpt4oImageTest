@@ -19,18 +19,45 @@ export async function POST(request) {
             'The OPENAI_API_TOKEN environment variable is not set. See README.md forinstructions on how to set it.'
         );
     }
-    const{ prompt } =await request.json();
+    const requestData = await request.json();
+    const { prompt, image, imageType } = requestData;
+    
     // 使用用户提供的prompt，如果为空则使用默认值
     const userPrompt = prompt?.trim() || "Studio Ghibli style husky";
     
     try {
-        // const prediction = await replicate.predictions.create(options);
+        let messages = [];
+        
+        // 如果有图片，将图片添加到消息中
+        if (image) {
+            console.log("包含图片处理请求");
+            
+            // 创建包含图片的消息
+            const imageContent = {
+                type: "image_url",
+                image_url: {
+                    url: `data:${imageType};base64,${image}`
+                }
+            };
+            
+            // 添加带有图片和文本的用户消息
+            messages.push({
+                role: "user",
+                content: [
+                    { type: "text", text: userPrompt },
+                    imageContent
+                ]
+            });
+        } else {
+            // 如果没有图片，只添加文本消息
+            messages.push({ role: "user", content: userPrompt });
+        }
+        
+        // 调用 OpenAI API
         const stream = await openai.chat.completions.create({
             model: "gpt-4o-image",
             stream: true,
-            messages: [
-                { role: "user", content: userPrompt },
-            ]
+            messages: messages
         });
 
         console.log("开始流式生成");
@@ -52,7 +79,7 @@ export async function POST(request) {
             if (chunk.choices && chunk.choices[0] && chunk.choices[0].finish_reason) {
                 console.log("生成完成，原因:", chunk.choices[0].finish_reason);
 
-                console.log(chunk.choices[0].delta.content);
+                
                 
                 // 构建最终响应对象
                 finishedResponse = {
@@ -62,7 +89,7 @@ export async function POST(request) {
                     choices: [{
                         message: {
                             role: "assistant",
-                            content: chunk.choices[0].delta.content
+                            content: fullContent
                         },
                         finish_reason: chunk.choices[0].finish_reason,
                         index: 0

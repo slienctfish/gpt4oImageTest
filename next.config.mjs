@@ -10,6 +10,10 @@ const nextConfig = {
             {
                 protocol:"https",
                 hostname:"replicate.delivery",
+            },
+            {
+                protocol:"https",
+                hostname:"tokensceshi.oss-ap-southeast-1.aliyuncs.com",
             }
         ]
     }
