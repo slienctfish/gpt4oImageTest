@@ -13,6 +13,8 @@ const WEBHOOK_HOST = process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
     : process.env.NGROK_HOST;
 
+export const maxDuration = 300; // 设置最大执行时间为 300 秒
+
 export async function POST(request) {
     if(!process.env.OPENAI_API_KEY){
         throw new Error(

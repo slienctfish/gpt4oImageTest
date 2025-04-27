@@ -12,7 +12,7 @@ export default function Home() {
   const [imageUrl, setImageUrl] = useState(null);
   const [baseImage, setBaseImage] = useState(null);
   const [baseImagePreview, setBaseImagePreview] = useState(null);
-  const [countdown, setCountdown] = useState(60);
+  const [countdown, setCountdown] = useState(300);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const fileInputRef = useRef(null);
@@ -20,7 +20,7 @@ export default function Home() {
 
   useEffect(() => {
     if (isLoading) {
-      setCountdown(70);
+      setCountdown(90);
       countdownRef.current = setInterval(() => {
         setCountdown(prev => {
           if (prev <= 1) {
@@ -178,7 +178,7 @@ export default function Home() {
           <div className="text-center">
             <div className="loading-spinner"></div>
             <div className="loading-text">
-              生成图片大约需要1分钟，请继续等待 {countdown}s
+              生成图片大约需要5分钟，请继续等待 {countdown}s
             </div>
           </div>
         </div>
