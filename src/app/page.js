@@ -10,28 +10,32 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState(null);
-  const [extractedPrompt, setExtractedPrompt] = useState(null);
   const [baseImage, setBaseImage] = useState(null);
   const [baseImagePreview, setBaseImagePreview] = useState(null);
   const fileInputRef = useRef(null);
 
   const extractImageUrl = (content) => {
-    const regex = /!\[image\]\((https:\/\/[^)]+)\)/;
-    const match = content.match(regex);
-    return match ? match[1] : null;
-  };
-
-  const extractPrompt = (content) => {
-    try {
-      const jsonMatch = content.match(/\{.*"prompt":\s*"([^"]+)".*\}/s);
-      if (jsonMatch && jsonMatch[1]) {
-        return jsonMatch[1];
+    console.log("解析内容:", content); // 调试输出
+    
+    // 尝试多种可能的图片链接格式
+    const patterns = [
+      // 带换行符的格式
+      /!\[(图片|image)\]\((https:\/\/[^)]+)\)[\r\n]+/,
+      // 标准格式
+      /!\[(图片|image)\]\((https:\/\/[^)]+)\)/,
+      // 仅匹配URL格式
+      /(https:\/\/tokensceshi\.oss[^)\s]+)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match) {
+        // 根据匹配到的正则返回正确的捕获组
+        return pattern.toString().includes('tokensceshi') ? match[1] : match[2];
       }
-      return null;
-    } catch (err) {
-      console.error('Error extracting prompt:', err);
-      return null;
     }
+    
+    return null;
   };
 
   const handleImageUpload = (e) => {
@@ -123,7 +127,6 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     setImageUrl(null);
-    setExtractedPrompt(null);
     
     try {
       const promptText = e.target.prompt.value;
@@ -152,19 +155,22 @@ export default function Home() {
       }
       setPrediction(prediction);
       
-      // 提取图片URL和prompt
+      // 提取图片URL
       if (prediction.choices && prediction.choices[0] && prediction.choices[0].message) {
         const content = prediction.choices[0].message.content;
+        console.log("从API收到内容:", content);
+        
         const url = extractImageUrl(content);
-        const prompt = extractPrompt(content);
+        console.log("提取的图片URL:", url);
+        
         if (url) {
           setImageUrl(url);
-        }
-        if (prompt) {
-          setExtractedPrompt(prompt);
+        } else {
+          console.warn("无法从内容中提取图片URL");
         }
       }
     } catch (err) {
+      console.error("请求处理错误:", err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -239,12 +245,6 @@ return (
   
   {prediction && (       
     <>
-      {extractedPrompt && (
-        <div className="mt-4 p-4 bg-gray-100 rounded">
-          <h3 className="font-bold mb-2">生成的 Prompt:</h3>
-          <p className="text-gray-700">{extractedPrompt}</p>
-        </div>
-      )}
       <div className="image-wrapper mt-5 flex justify-center">             
         <div className="max-w-2xl">
           <Image               
