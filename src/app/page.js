@@ -13,7 +13,7 @@ export default function Home() {
   const [baseImage, setBaseImage] = useState(null);
   const [baseImagePreview, setBaseImagePreview] = useState(null);
   const [countdown, setCountdown] = useState(300);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [taskId, setTaskId] = useState(null);
   const [pollingActive, setPollingActive] = useState(false);
