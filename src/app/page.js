@@ -13,7 +13,7 @@ export default function Home() {
   const [baseImage, setBaseImage] = useState(null);
   const [baseImagePreview, setBaseImagePreview] = useState(null);
   const [countdown, setCountdown] = useState(300);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [password, setPassword] = useState('');
   const [taskId, setTaskId] = useState(null);
   const [pollingActive, setPollingActive] = useState(false);
@@ -220,7 +220,7 @@ export default function Home() {
         <div className="text-center">
           <div className="loading-spinner"></div>
           <div className="loading-text">
-            生成图片大约需要5分钟，请继续等待 {countdown}s
+            生成图片大约需要2分钟，请继续等待 {countdown}s
           </div>
           
           {/* 进度条 */}

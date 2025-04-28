@@ -1,124 +1,162 @@
-import fs from 'fs';
-import path from 'path';
-import { randomUUID } from 'crypto';
+import { MongoClient } from 'mongodb';
 
-// 定义存储文件路径，使用临时目录
-const storagePath = path.join(process.cwd(), 'temp_storage');
+// MongoDB连接配置
+const MONGODB_URI = process.env.MONGODB_URI;
+const DB_NAME = 'image_generation';
+const COLLECTION_NAME = 'tasks';
 
-// 确保存储目录存在
-try {
-  if (!fs.existsSync(storagePath)) {
-    fs.mkdirSync(storagePath, { recursive: true });
+let client = null;
+let collection = null;
+
+// 初始化MongoDB连接
+async function initMongoDB() {
+  if (!client) {
+    try {
+      client = new MongoClient(MONGODB_URI);
+      await client.connect();
+      const db = client.db(DB_NAME);
+      collection = db.collection(COLLECTION_NAME);
+      
+      // 创建索引
+      await collection.createIndex({ createdAt: 1 }, { expireAfterSeconds: 300 }); // 1小时后自动删除
+      await collection.createIndex({ id: 1 }, { unique: true });
+      
+      console.log('MongoDB连接成功');
+    } catch (error) {
+      console.error('MongoDB连接失败:', error);
+      throw error;
+    }
   }
-} catch (error) {
-  console.error('创建存储目录失败:', error);
+  return collection;
 }
 
-// 任务文件的基本路径
-const getTaskFilePath = (id) => path.join(storagePath, `task_${id}.json`);
-
-// 保存任务到文件
-export const saveTask = (id, data) => {
-  try {
-    const filePath = getTaskFilePath(id);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-    return true;
-  } catch (error) {
-    console.error('保存任务失败:', error);
-    return false;
+// 确保MongoDB连接
+async function ensureConnection() {
+  if (!collection) {
+    await initMongoDB();
   }
-};
+  return collection;
+}
 
-// 从文件读取任务
-export const getTask = (id) => {
+// 创建新任务并返回ID
+export async function createTask(initialData = {}) {
+  const collection = await ensureConnection();
+  const id = crypto.randomUUID();
+  const task = {
+    id,
+    status: "pending",
+    createdAt: new Date(),
+    ...initialData
+  };
+  
   try {
-    const filePath = getTaskFilePath(id);
-    if (!fs.existsSync(filePath)) {
-      return null;
-    }
-    
-    const data = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(data);
+    await collection.insertOne(task);
+    return id;
+  } catch (error) {
+    console.error('创建任务失败:', error);
+    throw error;
+  }
+}
+
+// 从数据库读取任务
+export async function getTask(id) {
+  const collection = await ensureConnection();
+  try {
+    console.log('读取任务:', id);
+    let a = await collection.findOne({ id });
+    console.log('读取任务结果:', a);
+    return a;
   } catch (error) {
     console.error('读取任务失败:', error);
     return null;
   }
-};
+}
 
 // 更新任务状态
-export const updateTask = (id, status, data = {}) => {
+export async function updateTask(id, status, data = {}) {
+  const collection = await ensureConnection();
   try {
-    const task = getTask(id) || { 
+    const task = await getTask(id) || { 
       id,
       status: "pending",
-      createdAt: Date.now()
+      createdAt: new Date()
     };
     
     const updatedTask = {
       ...task,
       ...data,
       status,
-      updatedAt: Date.now()
+      updatedAt: new Date()
     };
     
-    saveTask(id, updatedTask);
+    await collection.updateOne(
+      { id },
+      { $set: updatedTask },
+      { upsert: true }
+    );
+    
     return updatedTask;
   } catch (error) {
     console.error('更新任务失败:', error);
     return null;
   }
-};
+}
 
 // 删除任务
-export const deleteTask = (id) => {
+export async function deleteTask(id) {
+  const collection = await ensureConnection();
   try {
-    const filePath = getTaskFilePath(id);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      return true;
-    }
-    return false;
+    const result = await collection.deleteOne({ id });
+    return result.deletedCount > 0;
   } catch (error) {
     console.error('删除任务失败:', error);
     return false;
   }
-};
+}
 
-// 创建新任务并返回ID
-export const createTask = (initialData = {}) => {
-  const id = randomUUID();
-  const task = {
-    id,
-    status: "pending",
-    createdAt: Date.now(),
-    ...initialData
-  };
-  
-  saveTask(id, task);
-  return id;
-};
-
-// 清理过期任务（可选）
-export const cleanupTasks = (maxAgeMs = 60 * 60 * 1000) => {
+// 清理过期任务
+export async function cleanupTasks(maxAgeMs = 60 * 60 * 1000) {
+  const collection = await ensureConnection();
   try {
-    const files = fs.readdirSync(storagePath);
-    const now = Date.now();
-    
-    files.forEach(file => {
-      if (file.startsWith('task_')) {
-        const filePath = path.join(storagePath, file);
-        const stats = fs.statSync(filePath);
-        
-        // 如果文件超过指定时间未修改，则删除
-        if (now - stats.mtimeMs > maxAgeMs) {
-          fs.unlinkSync(filePath);
-        }
-      }
+    const cutoffDate = new Date(Date.now() - maxAgeMs);
+    const result = await collection.deleteMany({
+      updatedAt: { $lt: cutoffDate }
     });
-    
+    console.log(`清理了 ${result.deletedCount} 个过期任务`);
     return true;
   } catch (error) {
     console.error('清理任务失败:', error);
     return false;
   }
-}; 
+}
+
+// 获取所有任务
+export async function getAllTasks() {
+  const collection = await ensureConnection();
+  try {
+    return await collection.find({}).toArray();
+  } catch (error) {
+    console.error('获取所有任务失败:', error);
+    return [];
+  }
+}
+
+// 获取特定状态的任务
+export async function getTasksByStatus(status) {
+  const collection = await ensureConnection();
+  try {
+    return await collection.find({ status }).toArray();
+  } catch (error) {
+    console.error('获取任务失败:', error);
+    return [];
+  }
+}
+
+// 关闭MongoDB连接
+export async function closeConnection() {
+  if (client) {
+    await client.close();
+    client = null;
+    collection = null;
+  }
+} 

@@ -11,8 +11,8 @@ export async function GET(request, { params }) {
     const id = params.id;
     console.log('请求任务状态:', id);
     
-    // 从文件存储中获取任务
-    const task = getTask(id);
+    // 从MongoDB获取任务
+    const task = await getTask(id);
     
     // 检查任务是否存在
     if (!task) {
@@ -32,17 +32,17 @@ export async function GET(request, { params }) {
 }
 
 // 更新任务状态的函数现在使用文件存储
-export function updateGenerationTask(id, status, data = {}) {
+export async function updateGenerationTask(id, status, data = {}) {
     console.log('更新任务状态:', id, status);
     
     // 使用文件存储更新任务
-    const updatedTask = updateTask(id, status, data);
+    const updatedTask = await updateTask(id, status, data);
     console.log('更新后的任务:', updatedTask);
     
     return updatedTask;
 }
 
 // 获取任务状态的函数
-export function getGenerationTask(id) {
-    return getTask(id);
+export async function getGenerationTask(id) {
+    return await getTask(id);
 } 
