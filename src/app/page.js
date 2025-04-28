@@ -15,8 +15,12 @@ export default function Home() {
   const [countdown, setCountdown] = useState(300);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
+  const [taskId, setTaskId] = useState(null);
+  const [pollingActive, setPollingActive] = useState(false);
+  const [progress, setProgress] = useState(0);
   const fileInputRef = useRef(null);
   const countdownRef = useRef(null);
+  const pollingRef = useRef(null);
 
   useEffect(() => {
     if (isLoading) {
@@ -42,6 +46,67 @@ export default function Home() {
       }
     };
   }, [isLoading]);
+
+  // 添加轮询效果
+  useEffect(() => {
+    if (taskId && pollingActive) {
+      // 设置轮询间隔
+      pollingRef.current = setInterval(async () => {
+        try {
+          // 检查任务状态
+          const response = await fetch(`/api/predictions/${taskId}`);
+          
+          if (!response.ok) {
+            if (response.status === 404) {
+              setError('任务不存在或已过期');
+              stopPolling();
+              return;
+            }
+            throw new Error(`API错误 ${response.status}`);
+          }
+          
+          const result = await response.json();
+          
+          // 更新进度
+          if (result.status === "processing") {
+            // 模拟进度
+            setProgress(prev => Math.min(prev + 5, 95));
+          }
+          
+          // 检查是否完成
+          if (result.status === "completed") {
+            setProgress(100);
+            setImageUrl(result.image_url);
+            setIsLoading(false);
+            stopPolling();
+          } 
+          // 检查是否失败
+          else if (result.status === "failed") {
+            setError(result.error || '图像生成失败');
+            setIsLoading(false);
+            stopPolling();
+          }
+        } catch (err) {
+          console.error("轮询出错:", err);
+          // 不停止轮询，继续尝试
+        }
+      }, 5000); // 每5秒检查一次
+    }
+    
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [taskId, pollingActive]);
+  
+  const stopPolling = () => {
+    setPollingActive(false);
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
 
   const extractImageUrl = (content) => {
     const regex = /!\[图片\]\((https:\/\/[^)]+)\)/;
@@ -96,6 +161,9 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     setImageUrl(null);
+    setTaskId(null);
+    setProgress(0);
+    
     try {
       const promptText = e.target.prompt.value;
       
@@ -116,25 +184,22 @@ export default function Home() {
         body: JSON.stringify(requestBody),
       });
 
-      let prediction = await response.json();
-      if(response.status !== 201){
-        setError(prediction.error);
-        return;
+      if (!response.ok) {
+        throw new Error(`API错误 ${response.status}`);
       }
-      setPrediction(prediction);
       
-      // 提取图片URL
-      if (prediction.choices && prediction.choices[0] && prediction.choices[0].message) {
-        debugger
-        const content = prediction.choices[0].message.content;
-        const url = extractImageUrl(content);
-        if (url) {
-          setImageUrl(url);
-        }
+      const result = await response.json();
+      
+      // 检查是否有任务ID
+      if (result.id) {
+        setTaskId(result.id);
+        // 启动轮询
+        setPollingActive(true);
+      } else {
+        throw new Error('服务器未返回任务ID');
       }
     } catch (err) {
       setError(err.message);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -148,41 +213,99 @@ export default function Home() {
     }
   };
 
-  if (!isAuthenticated) {
+  // 渲染加载状态
+  const renderLoadingState = () => {
     return (
+      <div className="loading-overlay">
+        <div className="text-center">
+          <div className="loading-spinner"></div>
+          <div className="loading-text">
+            生成图片大约需要5分钟，请继续等待 {countdown}s
+          </div>
+          
+          {/* 进度条 */}
+          <div className="progress-bar-container">
+            <div 
+              className="progress-bar" 
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+          <div className="progress-text">
+            {progress < 10 ? '准备中...' : 
+             progress < 40 ? '正在分析请求...' : 
+             progress < 70 ? '生成图像中...' : 
+             progress < 95 ? '即将完成...' : 
+             '处理完成!'}
+          </div>
+          
+          {taskId && (
+            <div className="task-id">
+              任务ID: {taskId.substring(0, 8)}...
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ... add these styles to your CSS or add them inline
+  const styles = `
+    .progress-bar-container {
+      width: 80%;
+      margin: 20px auto;
+      height: 10px;
+      background-color: #f0f0f0;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      background-color: #4CAF50;
+      transition: width 0.3s ease;
+    }
+    
+    .progress-text {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #555;
+    }
+    
+    .task-id {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #777;
+    }
+  `;
+
+  if (!isAuthenticated) {
+return (
       <div className="container">
         <div className="auth-container">
           <form onSubmit={handlePasswordSubmit} className="auth-form">
             <h2 className="text-2xl font-bold mb-4">请输入访问密码</h2>
-            <input
+      <input 
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="auth-input"
               placeholder="请输入密码"
-            />
+      />
             <button type="submit" className="auth-button">
               验证
-            </button>
+      </button>
             {error && <div className="error-message">{error}</div>}
           </form>
         </div>
-      </div>
+    </div>
     );
   }
 
   return (   
-    <div className="container">     
-      {isLoading && (
-        <div className="loading-overlay">
-          <div className="text-center">
-            <div className="loading-spinner"></div>
-            <div className="loading-text">
-              生成图片大约需要5分钟，请继续等待 {countdown}s
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="container">
+      <style jsx>{styles}</style>
+      
+      {isLoading && renderLoadingState()}
       
       <div className="left-panel">
         <form onSubmit={handleSubmit}>
@@ -201,11 +324,11 @@ export default function Home() {
           />
           
           <div className="file-upload">
-            <input 
-              type="file" 
-              accept="image/*"
-              onChange={handleImageUpload}
-              ref={fileInputRef}
+      <input 
+        type="file" 
+        accept="image/*"
+        onChange={handleImageUpload}
+        ref={fileInputRef}
               className="hidden"
             />
             <div className="text-center" onClick={(e) => {
@@ -217,9 +340,9 @@ export default function Home() {
             }}>
               {baseImagePreview ? (
                 <div>
-                  <img 
-                    src={baseImagePreview} 
-                    alt="上传的图片" 
+              <img 
+                src={baseImagePreview} 
+                alt="上传的图片" 
                     className="uploaded-preview-image mb-2"
                   />
                   <button 
@@ -240,9 +363,9 @@ export default function Home() {
                 </div>
               )}
             </div>
-          </div>
-        </form>
-        
+    </div>
+  </form>
+
         {error && <div className="error-message">{error}</div>}
       </div>
       
@@ -259,19 +382,32 @@ export default function Home() {
               >
                 下载图片
               </a>
-              <Image               
-                src={imageUrl}               
-                alt="Generated image"               
+          <Image               
+            src={imageUrl}
+            alt="Generated image"               
                 className="generated-preview-image"
-                width={512}
+            width={512}
                 height={768}
-                style={{ objectFit: 'contain' }}
-                priority
-              />
-            </div>
-          </div>
+            style={{ objectFit: 'contain' }}
+            priority
+          />  
+        </div>
+      </div>         
         )}
       </div>
-    </div>                
+      
+      {/* 可以添加重试按钮 */}
+      {error && taskId && (
+        <button 
+          onClick={() => {
+            setPollingActive(true);
+            setError(null);
+          }}
+          className="retry-button"
+        >
+          重试获取结果
+        </button>
+  )}   
+</div>                
   );
 } 
