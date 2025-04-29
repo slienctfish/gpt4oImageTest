@@ -25,7 +25,7 @@ export async function POST(request) {
     const { prompt, image, imageType } = requestData;
     
     // 使用用户提供的prompt，如果为空则使用默认值
-    const userPrompt = prompt?.trim() || "Studio Ghibli style husky";
+    const userPrompt = prompt?.trim() || "Studio Ghibli style puppy";
     
     try {
         // 创建新任务并获取任务ID

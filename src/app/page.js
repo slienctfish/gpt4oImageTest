@@ -13,11 +13,12 @@ export default function Home() {
   const [baseImage, setBaseImage] = useState(null);
   const [baseImagePreview, setBaseImagePreview] = useState(null);
   const [countdown, setCountdown] = useState(300);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [taskId, setTaskId] = useState(null);
   const [pollingActive, setPollingActive] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [partialContent, setPartialContent] = useState('准备中……');
   const fileInputRef = useRef(null);
   const countdownRef = useRef(null);
   const pollingRef = useRef(null);
@@ -71,6 +72,11 @@ export default function Home() {
           if (result.status === "processing") {
             // 模拟进度
             setProgress(prev => Math.min(prev + 5, 95));
+            console.log(result);
+            // 更新部分内容
+            if (result.partial_content) {
+              setPartialContent(result.partial_content);
+            }
           }
           
           // 检查是否完成
@@ -163,6 +169,7 @@ export default function Home() {
     setImageUrl(null);
     setTaskId(null);
     setProgress(0);
+    setPartialContent('准备中');
     
     try {
       const promptText = e.target.prompt.value;
@@ -231,11 +238,11 @@ export default function Home() {
             ></div>
           </div>
           <div className="progress-text">
-            {progress < 10 ? '准备中...' : 
+            {partialContent || (progress < 10 ? '准备中...' : 
              progress < 40 ? '正在分析请求...' : 
              progress < 70 ? '生成图像中...' : 
              progress < 95 ? '即将完成...' : 
-             '处理完成!'}
+             '处理完成!')}
           </div>
           
           {taskId && (
@@ -279,31 +286,33 @@ export default function Home() {
   `;
 
   if (!isAuthenticated) {
-return (
+    return (
       <div className="container">
         <div className="auth-container">
           <form onSubmit={handlePasswordSubmit} className="auth-form">
             <h2 className="text-2xl font-bold mb-4">请输入访问密码</h2>
-      <input 
+            <input 
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="auth-input"
               placeholder="请输入密码"
-      />
+            />
             <button type="submit" className="auth-button">
               验证
-      </button>
+            </button>
             {error && <div className="error-message">{error}</div>}
           </form>
         </div>
-    </div>
+      </div>
     );
   }
 
   return (   
     <div className="container">
       <style jsx>{styles}</style>
+      
+      
       
       <div className="left-panel">
         <form onSubmit={handleSubmit}>
@@ -322,11 +331,11 @@ return (
           />
           
           <div className="file-upload">
-      <input 
-        type="file" 
-        accept="image/*"
-        onChange={handleImageUpload}
-        ref={fileInputRef}
+            <input 
+              type="file" 
+              accept="image/*"
+              onChange={handleImageUpload}
+              ref={fileInputRef}
               className="hidden"
             />
             <div className="text-center" onClick={(e) => {
@@ -338,9 +347,9 @@ return (
             }}>
               {baseImagePreview ? (
                 <div>
-              <img 
-                src={baseImagePreview} 
-                alt="上传的图片" 
+                  <img 
+                    src={baseImagePreview} 
+                    alt="上传的图片" 
                     className="uploaded-preview-image mb-2"
                   />
                   <button 
@@ -361,17 +370,17 @@ return (
                 </div>
               )}
             </div>
-    </div>
-  </form>
+          </div>
+        </form>
 
         {error && <div className="error-message">{error}</div>}
       </div>
       
       <div className="right-panel">
-        {imageUrl && (
+        {imageUrl ? (
           <div className="w-full">
             <div className="relative">
-            <a 
+              <a 
                 href={imageUrl}
                 download
                 className="download-button"
@@ -380,17 +389,34 @@ return (
               >
                 下载图片
               </a>
-          <Image               
-            src={imageUrl}
-            alt="Generated image"               
+              <Image               
+                src={imageUrl}
+                alt="Generated image"               
                 className="generated-preview-image"
-            width={512}
+                width={512}
                 height={768}
-            style={{ objectFit: 'contain' }}
-            priority
-          />  
-        </div>
-      </div>         
+                style={{ objectFit: 'contain' }}
+                priority
+              />  
+            </div>
+          </div>
+        ) : (
+          <div className="w-full">
+            <div className="relative">
+              <div className="generated-preview-image bg-gray-100 flex items-center justify-center">
+                <div className="text-center p-4">
+                  <p className="text-gray-600 whitespace-pre-wrap">
+                    {partialContent.split('\n\n').map((line, index) => (
+                      <span key={index}>
+                        {line}
+                        <br />
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
       
@@ -405,7 +431,7 @@ return (
         >
           重试获取结果
         </button>
-  )}   
-</div>                
+      )}   
+    </div>                
   );
 } 
